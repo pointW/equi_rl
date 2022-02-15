@@ -108,8 +108,8 @@ python main.py --env=[env] --planner_episode=20 --dpos=0.05 --drot_n=8 --alg=cur
 ## Citation
 ```
 @inproceedings{
-wang2022mathrmsoequivariant,
-title={\${\textbackslash}mathrm\{{SO}\}(2)\$-Equivariant Reinforcement Learning},
+wang2022so2equivariant,
+title={{$\mathrm{SO}(2)$}-Equivariant Reinforcement Learning},
 author={Dian Wang and Robin Walters and Robert Platt},
 booktitle={International Conference on Learning Representations},
 year={2022},
