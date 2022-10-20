@@ -67,8 +67,11 @@ class Logger(object):
         self.steps_left = list()
         self.td_errors = list()
         self.expert_samples = list()
+        self.step_discounted_reward = list()
+        self.step_success = list()
 
         self.eval_rewards = list()
+        self.success = list()
 
         # Buffer of transitions
         self.transitions = list()
@@ -84,6 +87,9 @@ class Logger(object):
                 for r in reversed(self.episode_rewards[i]):
                     R = r + self.gamma * R
                 self.rewards.append(R)
+                self.success.append(self.episode_rewards[i][-1])
+                self.step_discounted_reward.append([self.num_training_steps, R])
+                self.step_success.append([self.num_training_steps, self.episode_rewards[i][-1]])
                 self.episode_rewards[i] = []
         # self.rewards.extend(self.episode_rewards[done_masks.astype(bool)])
         self.steps_left.extend(step_lefts[done_masks.astype(bool)])
@@ -112,6 +118,12 @@ class Logger(object):
         return np.mean(self.rewards[starting:])
         # return np.mean(self.rewards[-n:]) if self.rewards else 0.0
 
+    def getCurrentAvgSR(self, n=100, starting=0):
+        if not self.success:
+            return 0.0
+        starting = max(starting, len(self.success)-n)
+        return np.mean(self.success[starting:])
+
     def getCurrentLoss(self):
         ''' Get the most recent loss. '''
         if not self.losses:
@@ -130,6 +142,14 @@ class Logger(object):
             xs = np.arange(n, (len(avg_reward))+n)
             plt.plot(xs, np.mean(list(windowed(self.rewards, n)), axis=1))
             plt.savefig(os.path.join(self.info_dir, 'learning_curve.pdf'))
+            plt.close()
+
+        n = min(n, len(self.success))
+        if n > 0:
+            avg_reward = np.mean(list(windowed(self.success, n)), axis=1)
+            xs = np.arange(n, (len(avg_reward))+n)
+            plt.plot(xs, np.mean(list(windowed(self.success, n)), axis=1))
+            plt.savefig(os.path.join(self.info_dir, 'success_rate.pdf'))
             plt.close()
 
     def saveStepLeftCurve(self, n=100):
@@ -184,6 +204,9 @@ class Logger(object):
 
     def saveRewards(self):
         np.save(os.path.join(self.info_dir, 'rewards.npy'), self.rewards)
+        np.save(os.path.join(self.info_dir, 'success_rate.npy'), self.success)
+        np.save(os.path.join(self.info_dir, 'step_reward.npy'), self.step_discounted_reward)
+        np.save(os.path.join(self.info_dir, 'step_success_rate.npy'), self.step_success)
 
     def saveLosses(self):
         np.save(os.path.join(self.info_dir, 'losses.npy'), self.losses)
@@ -245,6 +268,9 @@ class Logger(object):
                 'td_errors': self.td_errors,
                 'expert_samples': self.expert_samples,
                 'eval_rewards': self.eval_rewards,
+                'success': self.success,
+                'step_reward': self.step_discounted_reward,
+                'step_success': self.step_success,
             },
             'torch_rng_state': torch.get_rng_state(),
             'torch_cuda_rng_state': torch.cuda.get_rng_state(),
@@ -275,6 +301,9 @@ class Logger(object):
         self.td_errors =checkpoint['logger']['td_errors']
         self.expert_samples = checkpoint['logger']['expert_samples']
         self.eval_rewards = checkpoint['logger']['eval_rewards']
+        self.success = checkpoint['logger']['success']
+        self.step_discounted_reward = checkpoint['logger']['step_reward']
+        self.step_success = checkpoint['logger']['step_success']
         torch.set_rng_state(checkpoint['torch_rng_state'])
         torch.cuda.set_rng_state(checkpoint['torch_cuda_rng_state'])
         np.random.set_state(checkpoint['np_rng_state'])
@@ -307,3 +336,7 @@ class Logger(object):
         np.save(os.path.join(result_dir, 'losses.npy'), self.losses)
         np.save(os.path.join(result_dir, 'td_errors.npy'), self.td_errors)
         np.save(os.path.join(result_dir, 'eval_rewards.npy'), self.eval_rewards)
+        np.save(os.path.join(result_dir, 'success_rate.npy'), self.success)
+        np.save(os.path.join(result_dir, 'step_reward.npy'), self.step_discounted_reward)
+        np.save(os.path.join(result_dir, 'step_success_rate.npy'), self.step_success)
+
