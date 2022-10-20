@@ -69,8 +69,7 @@ class SAC(A2CBase):
         """
         super().loadFromState(save_state)
         self.alpha = save_state['alpha']
-        self.log_alpha = torch.tensor(np.log(self.alpha.item()), requires_grad=True, device=self.device)
-        self.alpha_optim = torch.optim.Adam([self.log_alpha], lr=1e-3)
+        self.log_alpha = save_state['log_alpha']
         self.alpha_optim.load_state_dict(save_state['alpha_optimizer'])
 
     def targetSoftUpdate(self):

@@ -11,7 +11,7 @@ def strToBool(value):
 
 parser = argparse.ArgumentParser()
 env_group = parser.add_argument_group('environment')
-env_group.add_argument('--env', type=str, default='close_loop_block_picking', help='close_loop_block_pulling, close_loop_household_picking, close_loop_drawer_opening, close_loop_block_stacking, close_loop_house_building_1, close_loop_block_picking_corner')
+env_group.add_argument('--env', type=str, default='close_loop_block_picking', help='close_loop_block_pulling, close_loop_household_picking, close_loop_drawer_opening, close_loop_block_stacking, close_loop_house_building_1, close_loop_block_picking_corner, close_loop_block_pushing, close_loop_block_in_bowl, close_loop_clutter_picking')
 env_group.add_argument('--simulator', type=str, default='pybullet')
 env_group.add_argument('--robot', type=str, default='kuka')
 env_group.add_argument('--max_episode_steps', type=int, default=100)
@@ -23,7 +23,9 @@ env_group.add_argument('--render', type=strToBool, default=False)
 env_group.add_argument('--workspace_size', type=float, default=0.4)
 env_group.add_argument('--heightmap_size', type=int, default=128)
 env_group.add_argument('--view_type', type=str, default='camera_center_xyz')
+env_group.add_argument('--view_scale', type=float, default=None)
 env_group.add_argument('--obs_type', type=str, default='pixel')
+env_group.add_argument('--transparent_bin', type=strToBool, default=True)
 
 training_group = parser.add_argument_group('training')
 training_group.add_argument('--alg', default='sac')
@@ -105,11 +107,18 @@ heightmap_size = args.heightmap_size
 heightmap_resolution = workspace_size/heightmap_size
 action_space = [0, heightmap_size]
 view_type = args.view_type
+if env in ['close_loop_clutter_picking', 'close_loop_block_picking']:
+    view_scale = 1.
+else:
+    view_scale = 1.5
 obs_type = args.obs_type
 if env in ['close_loop_block_stacking', 'close_loop_house_building_1', 'close_loop_block_pulling']:
     num_objects = 2
+elif env == 'close_loop_clutter_picking':
+    num_objects = 5
 else:
     num_objects = 1
+transparent_bin = args.transparent_bin
 
 ######################################################################################
 # training
@@ -190,10 +199,13 @@ env_config = {'workspace': workspace, 'max_steps': max_episode_steps, 'obs_size'
               'fast_mode': True,  'action_sequence': action_sequence, 'render': render, 'num_objects': num_objects,
               'random_orientation':random_orientation, 'robot': robot,
               'workspace_check': 'point', 'object_scale_range': (1, 1),
-              'hard_reset_freq': 1000, 'physics_mode' : 'fast', 'view_type': view_type, 'obs_type': obs_type}
+              'hard_reset_freq': 1000, 'physics_mode' : 'fast', 'view_type': view_type, 'obs_type': obs_type,
+              'view_scale': view_scale, 'transparent_bin': transparent_bin}
 planner_config = {'random_orientation':random_orientation, 'dpos': dpos, 'drot': drot}
 if env == 'close_loop_household_picking':
     env_config['object_scale_range'] = (0.6, 0.6)
+elif env == 'close_loop_clutter_picking':
+    env_config['object_scale_range'] = (0.8, 1.0)
 if seed is not None:
     env_config['seed'] = seed
 ######################################################################################

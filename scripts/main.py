@@ -5,7 +5,6 @@ import copy
 import collections
 from tqdm import tqdm
 
-sys.path.append('./')
 sys.path.append('..')
 sys.path.append('../helping_hands_rl_envs')
 from utils.parameters import *
@@ -160,6 +159,7 @@ def train():
         s = 0
         if not no_bar:
             planner_bar = tqdm(total=planner_episode)
+        local_transitions = []
         while j < planner_episode:
             plan_actions = planner_envs.getNextAction()
             planner_actions_star_idx, planner_actions_star = agent.getActionFromPlan(plan_actions)
@@ -171,16 +171,23 @@ def train():
                                               steps_lefts[i].numpy(), np.array(1))
                 if obs_type == 'pixel':
                     transition = normalizeTransition(transition)
-                replay_buffer.add(transition)
+                # replay_buffer.add(transition)
+                local_transitions.append(transition)
             states = copy.copy(states_)
             obs = copy.copy(obs_)
 
-            j += dones.sum().item()
-            s += rewards.sum().item()
+            if dones.sum() and rewards.sum():
+                for t in local_transitions:
+                    replay_buffer.add(t)
+                local_transitions = []
+                j += dones.sum().item()
+                s += rewards.sum().item()
+                if not no_bar:
+                    planner_bar.set_description('{:.3f}/{}, AVG: {:.3f}'.format(s, j, float(s) / j if j != 0 else 0))
+                    planner_bar.update(dones.sum().item())
+            elif dones.sum():
+                local_transitions = []
 
-            if not no_bar:
-                planner_bar.set_description('{:.3f}/{}, AVG: {:.3f}'.format(s, j, float(s)/j if j != 0 else 0))
-                planner_bar.update(dones.sum().item())
         if expert_aug_n > 0:
             augmentBuffer(replay_buffer, buffer_aug_type, expert_aug_n)
 
@@ -194,9 +201,9 @@ def train():
                     pre_train_bar.update(1)
 
     # pre train
-    if pre_train_step > 0:
+    if pre_train_step > 0 and not load_sub and not load_model_pre:
         pbar = tqdm(total=pre_train_step)
-        while len(logger.losses) < pre_train_step:
+        for i in range(pre_train_step):
             t0 = time.time()
             train_step(agent, replay_buffer, logger, p_beta_schedule)
             if logger.num_training_steps % 1000 == 0:
@@ -204,7 +211,7 @@ def train():
                 logger.saveTdErrorCurve(100)
             if not no_bar:
                 pbar.set_description('loss: {:.3f}, time: {:.2f}'.format(float(logger.getCurrentLoss()), time.time()-t0))
-                pbar.update(len(logger.losses)-pbar.n)
+                pbar.update()
 
             if (time.time() - start_time) / 3600 > time_limit:
                 logger.saveCheckPoint(args, envs, agent, replay_buffer)
@@ -261,8 +268,8 @@ def train():
 
         if not no_bar:
             timer_final = time.time()
-            description = 'Action Step:{}; Reward:{:.03f}; Eval Reward:{:.03f}; Explore:{:.02f}; Loss:{:.03f}; Time:{:.03f}'.format(
-                logger.num_steps, logger.getCurrentAvgReward(100), logger.eval_rewards[-1] if len(logger.eval_rewards) > 0 else 0, eps, float(logger.getCurrentLoss()),
+            description = 'Action Step:{}; Episode: {}; Reward:{:.03f}; Eval Reward:{:.03f}; Explore:{:.02f}; Loss:{:.03f}; Time:{:.03f}'.format(
+                logger.num_steps, logger.num_episodes, logger.getCurrentAvgReward(100), logger.eval_rewards[-1] if len(logger.eval_rewards) > 0 else 0, eps, float(logger.getCurrentLoss()),
                 timer_final - timer_start)
             pbar.set_description(description)
             timer_start = timer_final
