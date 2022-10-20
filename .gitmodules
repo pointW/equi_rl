@@ -1,4 +1,0 @@
-[submodule "helping_hands_rl_envs"]
-	path = helping_hands_rl_envs
-	url = https://github.com/pointW/helping_hands_rl_envs.git
-	branch = dian_corl22
